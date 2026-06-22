@@ -3,18 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>BookBattle Rankings</title>
+    <title>Book Battle</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main class="app-shell">
       <header class="app-header">
-        <div>
-          <h1>BookBattle</h1>
-        </div>
+        <h1>Book Battle</h1>
       </header>
 
       <div class="workspace">
+        <section class="ranking-section" aria-labelledby="ranking-title">
+          <div class="section-header">
+            <h2 id="ranking-title">Ranked List</h2>
+          </div>
+          <ol id="rankingList" class="ranking-list"></ol>
+        </section>
+
         <section class="entry-panel" aria-labelledby="add-entry-title">
           <div class="section-header">
             <h2 id="add-entry-title">Add Entry</h2>
@@ -33,13 +38,6 @@
               <span>Add Entry</span>
             </button>
           </form>
-        </section>
-
-        <section class="ranking-section" aria-labelledby="ranking-title">
-          <div class="section-header">
-            <h2 id="ranking-title">Ranked List</h2>
-          </div>
-          <ol id="rankingList" class="ranking-list"></ol>
         </section>
       </div>
     </main>

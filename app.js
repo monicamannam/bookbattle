@@ -1,5 +1,6 @@
 const TABLE_NAME = "bookbattle_items";
 const LOCAL_STORAGE_KEY = "bookbattle-ranking-items";
+const RANK_STEP = 1000;
 
 const entryForm = document.querySelector("#entryForm");
 const nameInput = document.querySelector("#nameInput");
@@ -24,7 +25,7 @@ entryForm.addEventListener("submit", async (event) => {
   }
 
   await runWithBusyState(async () => {
-    const nextRank = items.length ? Math.max(...items.map((item) => item.rank)) + 1 : 1;
+    const nextRank = items.length ? Math.max(...items.map((item) => item.rank)) + RANK_STEP : RANK_STEP;
     const newItem = {
       name,
       image_url: imageUrl,
@@ -99,11 +100,13 @@ async function moveItem(itemId, direction) {
 
 async function reorderItems(fromIndex, toIndex) {
   const previousItems = items.map((item) => ({ ...item }));
+  const movedItemId = items[fromIndex].id;
+
   reorderItemsLocally(fromIndex, toIndex);
   renderItems();
 
   try {
-    await persistRanks(items);
+    await persistReorderedItem(movedItemId);
   } catch (error) {
     items = previousItems;
     renderItems();
@@ -111,7 +114,42 @@ async function reorderItems(fromIndex, toIndex) {
   }
 }
 
-async function persistRanks(rankedItems) {
+async function persistReorderedItem(movedItemId) {
+  const movedIndex = items.findIndex((item) => item.id === movedItemId);
+  const movedItem = items[movedIndex];
+  const previousItem = items[movedIndex - 1] || null;
+  const nextItem = items[movedIndex + 1] || null;
+  const nextRank = getRankBetween(previousItem, nextItem);
+
+  if (!movedItem) {
+    return;
+  }
+
+  if (nextRank === null) {
+    items = getRebalancedItems(items);
+    renderItems();
+    await persistAllRanks(items);
+    return;
+  }
+
+  movedItem.rank = nextRank;
+
+  if (!supabaseClient) {
+    saveLocalItems();
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from(TABLE_NAME)
+    .update({ rank: movedItem.rank })
+    .eq("id", movedItem.id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function persistAllRanks(rankedItems) {
   if (!supabaseClient) {
     saveLocalItems();
     return;
@@ -127,6 +165,34 @@ async function persistRanks(rankedItems) {
   if (failedUpdate) {
     throw failedUpdate.error;
   }
+}
+
+function getRankBetween(previousItem, nextItem) {
+  if (!previousItem && !nextItem) {
+    return RANK_STEP;
+  }
+
+  if (!previousItem) {
+    const candidateRank = nextItem.rank - RANK_STEP;
+    return candidateRank > 0 ? candidateRank : null;
+  }
+
+  if (!nextItem) {
+    return previousItem.rank + RANK_STEP;
+  }
+
+  if (nextItem.rank - previousItem.rank <= 1) {
+    return null;
+  }
+
+  return Math.floor((previousItem.rank + nextItem.rank) / 2);
+}
+
+function getRebalancedItems(rawItems) {
+  return rawItems.map((item, index) => ({
+    ...item,
+    rank: (index + 1) * RANK_STEP,
+  }));
 }
 
 function renderItems() {
@@ -228,6 +294,7 @@ async function endPointerSort() {
   }
 
   const previousItems = activeSort.previousItems;
+  const movedItemId = activeSort.itemId;
   const hasChanged = previousItems.some((item, index) => item.id !== items[index]?.id);
 
   activeSort = null;
@@ -240,7 +307,7 @@ async function endPointerSort() {
 
   await runWithBusyState(async () => {
     try {
-      await persistRanks(items);
+      await persistReorderedItem(movedItemId);
     } catch (error) {
       items = previousItems;
       renderItems();
@@ -267,10 +334,7 @@ function reorderItemsLocally(fromIndex, toIndex) {
   const [movedItem] = reorderedItems.splice(fromIndex, 1);
 
   reorderedItems.splice(toIndex, 0, movedItem);
-  items = reorderedItems.map((item, index) => ({
-    ...item,
-    rank: index + 1,
-  }));
+  items = reorderedItems;
 }
 
 async function runWithBusyState(action) {
@@ -326,10 +390,12 @@ async function loadRemoteConfig() {
 }
 
 function normalizeRanks(rawItems) {
-  const rankedItems = sortItems(rawItems).map((item, index) => ({
-    ...item,
-    rank: index + 1,
-  }));
+  const rankedItems = sortItems(
+    rawItems.map((item, index) => ({
+      ...item,
+      rank: Number.isFinite(Number(item.rank)) ? Number(item.rank) : (index + 1) * RANK_STEP,
+    })),
+  );
 
   if (!supabaseClient) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rankedItems));
