@@ -34,7 +34,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -127,6 +128,23 @@ input {
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
+select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 34px 0 10px;
+  color: var(--ink-soft);
+  background: var(--panel-soft);
+  font-size: 0.82rem;
+  font-weight: 750;
+  outline: none;
+}
+
+select:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px var(--focus);
+}
+
 input::placeholder {
   color: #9ca5ae;
 }
@@ -194,7 +212,7 @@ button:disabled {
 }
 
 .ranking-section {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ranking-section .section-header {
@@ -204,9 +222,9 @@ button:disabled {
 
 .ranking-list {
   display: grid;
-  gap: 0;
+  gap: 12px;
   margin: 0;
-  padding: 0;
+  padding: 14px;
   list-style: none;
   transition: gap 140ms ease;
 }
@@ -219,15 +237,12 @@ button:disabled {
   align-items: center;
   gap: 14px;
   min-height: 118px;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   margin: 0;
   padding: 13px 18px;
   background: var(--panel);
   transition: background 140ms ease, box-shadow 140ms ease, margin 140ms ease, opacity 140ms ease, transform 140ms ease;
-}
-
-.ranking-item:last-child {
-  border-bottom: 0;
 }
 
 .ranking-item:hover {
@@ -235,7 +250,7 @@ button:disabled {
 }
 
 .is-reordering .ranking-list {
-  gap: 4px;
+  gap: 16px;
 }
 
 .is-reordering .ranking-item:not(.is-sorting) {
@@ -297,6 +312,13 @@ button:disabled {
   min-width: 0;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .entry-details h3 {
   overflow: hidden;
   display: -webkit-box;
@@ -308,6 +330,8 @@ button:disabled {
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  flex: 1;
+  min-width: 0;
 }
 
 .rank-actions {
@@ -363,6 +387,11 @@ button:disabled {
 
   .rank-actions {
     justify-content: flex-start;
+  }
+
+  .title-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

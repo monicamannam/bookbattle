@@ -1,6 +1,8 @@
 const TABLE_NAME = "bookbattle_items";
 const LOCAL_STORAGE_KEY = "bookbattle-ranking-items";
 const RANK_STEP = 1000;
+const DEFAULT_STATUS = "reading";
+const VALID_STATUSES = new Set(["completed", "reading", "abandoned"]);
 
 const entryForm = document.querySelector("#entryForm");
 const nameInput = document.querySelector("#nameInput");
@@ -30,6 +32,7 @@ entryForm.addEventListener("submit", async (event) => {
       name,
       image_url: imageUrl,
       rank: nextRank,
+      status: DEFAULT_STATUS,
     };
 
     if (supabaseClient) {
@@ -68,7 +71,7 @@ async function loadItems() {
     if (supabaseClient) {
       const { data, error } = await supabaseClient
         .from(TABLE_NAME)
-        .select("id,name,image_url,rank,created_at")
+        .select("id,name,image_url,rank,status,created_at")
         .order("rank", { ascending: true })
         .order("created_at", { ascending: true });
 
@@ -211,6 +214,7 @@ function renderItems() {
     const dragHandle = row.querySelector(".drag-handle");
     const image = row.querySelector(".entry-image");
     const title = row.querySelector("h3");
+    const statusSelect = row.querySelector(".status-select");
     const upButton = row.querySelector(".move-up");
     const downButton = row.querySelector(".move-down");
 
@@ -221,15 +225,47 @@ function renderItems() {
     image.alt = item.name;
     image.loading = "lazy";
     title.textContent = item.name;
+    statusSelect.value = normalizeStatus(item.status);
 
     dragHandle.disabled = isBusy;
     dragHandle.addEventListener("pointerdown", (event) => beginPointerSort(event, item.id));
+    statusSelect.disabled = isBusy;
+    statusSelect.addEventListener("change", (event) => updateItemStatus(item.id, event.target.value));
     upButton.disabled = index === 0 || isBusy;
     downButton.disabled = index === items.length - 1 || isBusy;
     upButton.addEventListener("click", () => moveItem(item.id, -1));
     downButton.addEventListener("click", () => moveItem(item.id, 1));
 
     rankingList.append(row);
+  });
+}
+
+async function updateItemStatus(itemId, nextStatus) {
+  const normalizedStatus = normalizeStatus(nextStatus);
+  const item = items.find((currentItem) => currentItem.id === itemId);
+
+  if (!item || item.status === normalizedStatus) {
+    return;
+  }
+
+  const previousStatus = item.status;
+  item.status = normalizedStatus;
+
+  await runWithBusyState(async () => {
+    if (!supabaseClient) {
+      saveLocalItems();
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from(TABLE_NAME)
+      .update({ status: normalizedStatus })
+      .eq("id", itemId);
+
+    if (error) {
+      item.status = previousStatus;
+      throw error;
+    }
   });
 }
 
@@ -363,6 +399,9 @@ function setControlsDisabled(disabled) {
   rankingList.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
+  rankingList.querySelectorAll("select").forEach((select) => {
+    select.disabled = disabled;
+  });
 }
 
 async function loadRemoteConfig() {
@@ -394,6 +433,7 @@ function normalizeRanks(rawItems) {
     rawItems.map((item, index) => ({
       ...item,
       rank: Number.isFinite(Number(item.rank)) ? Number(item.rank) : (index + 1) * RANK_STEP,
+      status: normalizeStatus(item.status),
     })),
   );
 
@@ -402,6 +442,11 @@ function normalizeRanks(rawItems) {
   }
 
   return rankedItems;
+}
+
+function normalizeStatus(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+  return VALID_STATUSES.has(normalizedStatus) ? normalizedStatus : DEFAULT_STATUS;
 }
 
 function sortItems(rawItems) {
