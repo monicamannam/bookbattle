@@ -1,19 +1,17 @@
 const TABLE_NAME = "bookbattle_items";
 const LOCAL_STORAGE_KEY = "bookbattle-ranking-items";
 
-const statusText = document.querySelector("#statusText");
 const entryForm = document.querySelector("#entryForm");
 const nameInput = document.querySelector("#nameInput");
 const imageInput = document.querySelector("#imageInput");
 const rankingList = document.querySelector("#rankingList");
-const refreshButton = document.querySelector("#refreshButton");
 const rankingItemTemplate = document.querySelector("#rankingItemTemplate");
 
 let supabaseClient = null;
 let hasLoadedRemoteConfig = false;
 let items = [];
 let isBusy = false;
-let draggedItemId = null;
+let activeSort = null;
 
 entryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -22,7 +20,6 @@ entryForm.addEventListener("submit", async (event) => {
   const imageUrl = imageInput.value.trim();
 
   if (!name || !imageUrl) {
-    setStatus("Add a name and image URL first.");
     return;
   }
 
@@ -60,12 +57,7 @@ entryForm.addEventListener("submit", async (event) => {
 
     entryForm.reset();
     renderItems();
-    setStatus(`Added "${name}" at the bottom.`);
   });
-});
-
-refreshButton.addEventListener("click", () => {
-  loadItems();
 });
 
 async function loadItems() {
@@ -89,7 +81,6 @@ async function loadItems() {
     }
 
     renderItems();
-    setStatus(getModeStatus());
   });
 }
 
@@ -103,45 +94,12 @@ async function moveItem(itemId, direction) {
 
   await runWithBusyState(async () => {
     await reorderItems(currentIndex, targetIndex);
-    setStatus(`Moved "${items[targetIndex].name}" ${direction < 0 ? "up" : "down"}.`);
-  });
-}
-
-async function moveDraggedItem(dropIndex) {
-  const currentIndex = items.findIndex((item) => item.id === draggedItemId);
-
-  if (currentIndex < 0) {
-    return;
-  }
-
-  let targetIndex = dropIndex;
-
-  if (targetIndex > currentIndex) {
-    targetIndex -= 1;
-  }
-
-  targetIndex = Math.max(0, Math.min(targetIndex, items.length - 1));
-
-  if (currentIndex === targetIndex) {
-    return;
-  }
-
-  await runWithBusyState(async () => {
-    await reorderItems(currentIndex, targetIndex);
-    setStatus(`Moved "${items[targetIndex].name}" to rank ${targetIndex + 1}.`);
   });
 }
 
 async function reorderItems(fromIndex, toIndex) {
   const previousItems = items.map((item) => ({ ...item }));
-  const reorderedItems = [...items];
-  const [movedItem] = reorderedItems.splice(fromIndex, 1);
-
-  reorderedItems.splice(toIndex, 0, movedItem);
-  items = reorderedItems.map((item, index) => ({
-    ...item,
-    rank: index + 1,
-  }));
+  reorderItemsLocally(fromIndex, toIndex);
   renderItems();
 
   try {
@@ -184,84 +142,135 @@ function renderItems() {
 
   items.forEach((item, index) => {
     const row = rankingItemTemplate.content.firstElementChild.cloneNode(true);
+    const dragHandle = row.querySelector(".drag-handle");
     const image = row.querySelector(".entry-image");
     const title = row.querySelector("h3");
     const upButton = row.querySelector(".move-up");
     const downButton = row.querySelector(".move-down");
 
     row.dataset.itemId = item.id;
-    row.draggable = !isBusy;
+    row.classList.toggle("is-sorting", activeSort?.itemId === item.id);
     row.querySelector(".rank-number").textContent = String(index + 1).padStart(2, "0");
     image.src = item.image_url;
     image.alt = item.name;
     image.loading = "lazy";
     title.textContent = item.name;
 
+    dragHandle.disabled = isBusy;
+    dragHandle.addEventListener("pointerdown", (event) => beginPointerSort(event, item.id));
     upButton.disabled = index === 0 || isBusy;
     downButton.disabled = index === items.length - 1 || isBusy;
     upButton.addEventListener("click", () => moveItem(item.id, -1));
     downButton.addEventListener("click", () => moveItem(item.id, 1));
-    row.addEventListener("dragstart", (event) => handleDragStart(event, item.id));
-    row.addEventListener("dragover", (event) => handleDragOver(event, row));
-    row.addEventListener("dragleave", () => clearDropState(row));
-    row.addEventListener("drop", (event) => handleDrop(event, row, index));
-    row.addEventListener("dragend", handleDragEnd);
 
     rankingList.append(row);
   });
 }
 
-function handleDragStart(event, itemId) {
-  if (isBusy) {
-    event.preventDefault();
-    return;
-  }
-
-  draggedItemId = itemId;
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData("text/plain", itemId);
-  event.currentTarget.classList.add("is-dragging");
-}
-
-function handleDragOver(event, row) {
-  if (!draggedItemId || row.dataset.itemId === draggedItemId) {
+function beginPointerSort(event, itemId) {
+  if (isBusy || event.button !== 0) {
     return;
   }
 
   event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
-  clearAllDropState();
+  activeSort = {
+    itemId,
+    previousItems: items.map((item) => ({ ...item })),
+  };
+  document.body.classList.add("is-reordering");
+  renderItems();
+
+  window.addEventListener("pointermove", handlePointerSortMove);
+  window.addEventListener("pointerup", endPointerSort, { once: true });
+  window.addEventListener("pointercancel", cancelPointerSort, { once: true });
+}
+
+function handlePointerSortMove(event) {
+  if (!activeSort) {
+    return;
+  }
+
+  const row = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ranking-item");
+
+  if (!row || !rankingList.contains(row) || row.dataset.itemId === activeSort.itemId) {
+    return;
+  }
+
+  const currentIndex = items.findIndex((item) => item.id === activeSort.itemId);
+  const overIndex = items.findIndex((item) => item.id === row.dataset.itemId);
+
+  if (currentIndex < 0 || overIndex < 0) {
+    return;
+  }
 
   const rect = row.getBoundingClientRect();
   const isAfter = event.clientY > rect.top + rect.height / 2;
-  row.classList.add(isAfter ? "drop-after" : "drop-before");
+  let targetIndex = isAfter ? overIndex + 1 : overIndex;
+
+  if (targetIndex > currentIndex) {
+    targetIndex -= 1;
+  }
+
+  targetIndex = Math.max(0, Math.min(targetIndex, items.length - 1));
+
+  if (currentIndex !== targetIndex) {
+    reorderItemsLocally(currentIndex, targetIndex);
+    renderItems();
+  }
 }
 
-async function handleDrop(event, row, index) {
-  event.preventDefault();
+async function endPointerSort() {
+  window.removeEventListener("pointermove", handlePointerSortMove);
+  window.removeEventListener("pointercancel", cancelPointerSort);
 
-  const rect = row.getBoundingClientRect();
-  const isAfter = event.clientY > rect.top + rect.height / 2;
-  const dropIndex = isAfter ? index + 1 : index;
+  if (!activeSort) {
+    return;
+  }
 
-  clearAllDropState();
-  await moveDraggedItem(dropIndex);
-  draggedItemId = null;
-}
+  const previousItems = activeSort.previousItems;
+  const hasChanged = previousItems.some((item, index) => item.id !== items[index]?.id);
 
-function clearDropState(row) {
-  row.classList.remove("drop-before", "drop-after");
-}
+  activeSort = null;
+  document.body.classList.remove("is-reordering");
+  renderItems();
 
-function clearAllDropState() {
-  rankingList.querySelectorAll(".ranking-item").forEach((row) => {
-    row.classList.remove("is-dragging", "drop-before", "drop-after");
+  if (!hasChanged) {
+    return;
+  }
+
+  await runWithBusyState(async () => {
+    try {
+      await persistRanks(items);
+    } catch (error) {
+      items = previousItems;
+      renderItems();
+      throw error;
+    }
   });
 }
 
-function handleDragEnd() {
-  draggedItemId = null;
-  clearAllDropState();
+function cancelPointerSort() {
+  window.removeEventListener("pointermove", handlePointerSortMove);
+  window.removeEventListener("pointerup", endPointerSort);
+
+  if (activeSort) {
+    items = activeSort.previousItems;
+  }
+
+  activeSort = null;
+  document.body.classList.remove("is-reordering");
+  renderItems();
+}
+
+function reorderItemsLocally(fromIndex, toIndex) {
+  const reorderedItems = [...items];
+  const [movedItem] = reorderedItems.splice(fromIndex, 1);
+
+  reorderedItems.splice(toIndex, 0, movedItem);
+  items = reorderedItems.map((item, index) => ({
+    ...item,
+    rank: index + 1,
+  }));
 }
 
 async function runWithBusyState(action) {
@@ -276,7 +285,6 @@ async function runWithBusyState(action) {
     await action();
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Something went wrong.");
   } finally {
     isBusy = false;
     setControlsDisabled(false);
@@ -288,22 +296,9 @@ function setControlsDisabled(disabled) {
   entryForm.querySelectorAll("button, input").forEach((control) => {
     control.disabled = disabled;
   });
-  refreshButton.disabled = disabled;
   rankingList.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
-}
-
-function setStatus(message) {
-  statusText.textContent = message;
-}
-
-function getModeStatus() {
-  if (supabaseClient) {
-    return items.length ? `${items.length} ranked entries loaded.` : "Add your first entry.";
-  }
-
-  return items.length ? `${items.length} ranked entries loaded.` : "Add your first entry.";
 }
 
 async function loadRemoteConfig() {

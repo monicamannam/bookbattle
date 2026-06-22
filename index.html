@@ -10,15 +10,7 @@
     <main class="app-shell">
       <header class="app-header">
         <div>
-          <p class="eyebrow">Rankings</p>
           <h1>BookBattle</h1>
-        </div>
-        <div class="header-actions">
-          <p id="statusText" class="status-pill" aria-live="polite">Loading rankings...</p>
-          <button class="icon-text-button secondary" id="refreshButton" type="button">
-            <span aria-hidden="true">&orarr;</span>
-            <span>Refresh</span>
-          </button>
         </div>
       </header>
 
@@ -54,7 +46,7 @@
 
     <template id="rankingItemTemplate">
       <li class="ranking-item">
-        <div class="drag-handle" aria-hidden="true">::</div>
+        <button class="drag-handle" type="button" aria-label="Drag to reorder" title="Drag to reorder">::</button>
         <div class="rank-number"></div>
         <img class="entry-image" alt="">
         <div class="entry-details">

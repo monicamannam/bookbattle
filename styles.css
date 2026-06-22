@@ -57,9 +57,7 @@ p {
 }
 
 .app-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
+  display: flex;
   align-items: end;
   min-height: 230px;
   border-radius: 8px;
@@ -69,23 +67,6 @@ p {
     linear-gradient(135deg, rgba(239, 113, 85, 0.2), rgba(49, 106, 159, 0.26)),
     #101216;
   box-shadow: var(--shadow);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
-}
-
-.eyebrow {
-  margin-bottom: 10px;
-  color: #ffc7b8;
-  font-size: 0.72rem;
-  font-weight: 850;
-  letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 h1 {
@@ -213,17 +194,6 @@ input:focus {
   transform: translateY(-1px);
 }
 
-.secondary {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--line-dark);
-}
-
-.secondary:hover {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
-}
-
 .icon-button:hover:not(:disabled) {
   border-color: #c2c9d1;
   background: var(--panel-soft);
@@ -234,23 +204,6 @@ button:disabled {
   cursor: not-allowed;
   opacity: 0.38;
   transform: none;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  max-width: min(360px, 44vw);
-  overflow: hidden;
-  border: 1px solid var(--line-dark);
-  border-radius: 999px;
-  padding: 0 12px;
-  color: rgba(255, 255, 255, 0.82);
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 0.84rem;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .ranking-section {
@@ -273,7 +226,8 @@ button:disabled {
 .ranking-item {
   position: relative;
   display: grid;
-  grid-template-columns: 34px 58px 66px minmax(0, 1fr) auto;
+  grid-template-areas: "handle rank image detail actions";
+  grid-template-columns: 30px 44px 66px minmax(180px, 1fr) auto;
   align-items: center;
   gap: 14px;
   min-height: 118px;
@@ -291,37 +245,35 @@ button:disabled {
   background: #fbfcfd;
 }
 
-.ranking-item.is-dragging {
-  opacity: 0.42;
-}
-
-.ranking-item.drop-before {
-  box-shadow: inset 0 4px 0 var(--coral);
-}
-
-.ranking-item.drop-after {
-  box-shadow: inset 0 -4px 0 var(--coral);
+.ranking-item.is-sorting {
+  background: #f3faf7;
+  box-shadow: inset 4px 0 0 var(--green);
 }
 
 .drag-handle {
+  grid-area: handle;
   display: grid;
   place-items: center;
   width: 30px;
   height: 54px;
+  border: 0;
   border-radius: 8px;
   color: #a2abb4;
   background: var(--panel-soft);
+  font: inherit;
   font-size: 1rem;
   font-weight: 900;
   cursor: grab;
+  touch-action: none;
   user-select: none;
 }
 
-.ranking-item:active .drag-handle {
+.drag-handle:active {
   cursor: grabbing;
 }
 
 .rank-number {
+  grid-area: rank;
   color: var(--muted);
   font-size: 0.92rem;
   font-weight: 900;
@@ -329,6 +281,7 @@ button:disabled {
 }
 
 .entry-image {
+  grid-area: image;
   width: 66px;
   height: 96px;
   object-fit: contain;
@@ -337,20 +290,25 @@ button:disabled {
 }
 
 .entry-details {
+  grid-area: detail;
   min-width: 0;
 }
 
 .entry-details h3 {
   overflow: hidden;
+  display: -webkit-box;
   color: var(--ink);
   font-size: clamp(1.15rem, 2.5vw, 1.7rem);
   font-weight: 850;
-  line-height: 1.05;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .rank-actions {
+  grid-area: actions;
   display: flex;
   gap: 8px;
 }
@@ -379,22 +337,15 @@ button:disabled {
   }
 
   .app-header {
-    grid-template-columns: 1fr;
     min-height: 260px;
     padding: 22px;
   }
 
-  .header-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .status-pill {
-    max-width: 100%;
-  }
-
   .ranking-item {
-    grid-template-columns: 28px 42px 54px minmax(0, 1fr);
+    grid-template-areas:
+      "handle rank image detail"
+      ". . image actions";
+    grid-template-columns: 28px 34px 54px minmax(0, 1fr);
     gap: 10px;
     min-height: 112px;
     padding: 12px;
@@ -411,14 +362,13 @@ button:disabled {
   }
 
   .rank-actions {
-    grid-column: 3 / 5;
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 430px) {
   .ranking-item {
-    grid-template-columns: 26px 34px 48px minmax(0, 1fr);
+    grid-template-columns: 26px 30px 48px minmax(0, 1fr);
   }
 
   .entry-image {
