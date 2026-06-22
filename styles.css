@@ -249,12 +249,42 @@ button:disabled {
   background: #fbfcfd;
 }
 
+.ranking-item.status-completed {
+  border-color: rgba(44, 143, 111, 0.34);
+  background: #f1faf6;
+  box-shadow: inset 5px 0 0 var(--green);
+}
+
+.ranking-item.status-reading {
+  border-color: rgba(49, 106, 159, 0.34);
+  background: #f1f6fb;
+  box-shadow: inset 5px 0 0 var(--blue);
+}
+
+.ranking-item.status-abandoned {
+  border-color: rgba(239, 113, 85, 0.36);
+  background: #fff4f1;
+  box-shadow: inset 5px 0 0 var(--coral);
+}
+
+.ranking-item.status-completed:hover {
+  background: #eaf7f1;
+}
+
+.ranking-item.status-reading:hover {
+  background: #e9f2fa;
+}
+
+.ranking-item.status-abandoned:hover {
+  background: #ffebe5;
+}
+
 .is-reordering .ranking-list {
   gap: 16px;
 }
 
 .is-reordering .ranking-item:not(.is-sorting) {
-  background: #fcfdfd;
+  filter: saturate(0.92);
 }
 
 .ranking-item.is-sorting {
@@ -263,9 +293,21 @@ button:disabled {
   border-color: rgba(44, 143, 111, 0.55);
   background: #f3faf7;
   box-shadow:
-    inset 4px 0 0 var(--green),
+    inset 5px 0 0 currentColor,
     0 18px 36px rgba(16, 18, 22, 0.12);
   transform: scale(1.01);
+}
+
+.ranking-item.status-completed.is-sorting {
+  color: var(--green);
+}
+
+.ranking-item.status-reading.is-sorting {
+  color: var(--blue);
+}
+
+.ranking-item.status-abandoned.is-sorting {
+  color: var(--coral);
 }
 
 .drag-handle {

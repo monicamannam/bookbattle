@@ -217,15 +217,17 @@ function renderItems() {
     const statusSelect = row.querySelector(".status-select");
     const upButton = row.querySelector(".move-up");
     const downButton = row.querySelector(".move-down");
+    const status = normalizeStatus(item.status);
 
     row.dataset.itemId = item.id;
     row.classList.toggle("is-sorting", activeSort?.itemId === item.id);
+    row.classList.add(`status-${status}`);
     row.querySelector(".rank-number").textContent = String(index + 1).padStart(2, "0");
     image.src = item.image_url;
     image.alt = item.name;
     image.loading = "lazy";
     title.textContent = item.name;
-    statusSelect.value = normalizeStatus(item.status);
+    statusSelect.value = status;
 
     dragHandle.disabled = isBusy;
     dragHandle.addEventListener("pointerdown", (event) => beginPointerSort(event, item.id));
