@@ -13,6 +13,7 @@ let supabaseClient = null;
 let hasLoadedRemoteConfig = false;
 let items = [];
 let isBusy = false;
+let draggedItemId = null;
 
 entryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -101,36 +102,73 @@ async function moveItem(itemId, direction) {
   }
 
   await runWithBusyState(async () => {
-    const currentItem = items[currentIndex];
-    const targetItem = items[targetIndex];
-    const currentRank = currentItem.rank;
-    const targetRank = targetItem.rank;
-
-    currentItem.rank = targetRank;
-    targetItem.rank = currentRank;
-    items = sortItems(items);
-    renderItems();
-
-    if (supabaseClient) {
-      const updates = await Promise.all([
-        supabaseClient.from(TABLE_NAME).update({ rank: currentItem.rank }).eq("id", currentItem.id),
-        supabaseClient.from(TABLE_NAME).update({ rank: targetItem.rank }).eq("id", targetItem.id),
-      ]);
-      const failedUpdate = updates.find((result) => result.error);
-
-      if (failedUpdate) {
-        currentItem.rank = currentRank;
-        targetItem.rank = targetRank;
-        items = sortItems(items);
-        renderItems();
-        throw failedUpdate.error;
-      }
-    } else {
-      saveLocalItems();
-    }
-
-    setStatus(`Moved "${currentItem.name}" ${direction < 0 ? "up" : "down"}.`);
+    await reorderItems(currentIndex, targetIndex);
+    setStatus(`Moved "${items[targetIndex].name}" ${direction < 0 ? "up" : "down"}.`);
   });
+}
+
+async function moveDraggedItem(dropIndex) {
+  const currentIndex = items.findIndex((item) => item.id === draggedItemId);
+
+  if (currentIndex < 0) {
+    return;
+  }
+
+  let targetIndex = dropIndex;
+
+  if (targetIndex > currentIndex) {
+    targetIndex -= 1;
+  }
+
+  targetIndex = Math.max(0, Math.min(targetIndex, items.length - 1));
+
+  if (currentIndex === targetIndex) {
+    return;
+  }
+
+  await runWithBusyState(async () => {
+    await reorderItems(currentIndex, targetIndex);
+    setStatus(`Moved "${items[targetIndex].name}" to rank ${targetIndex + 1}.`);
+  });
+}
+
+async function reorderItems(fromIndex, toIndex) {
+  const previousItems = items.map((item) => ({ ...item }));
+  const reorderedItems = [...items];
+  const [movedItem] = reorderedItems.splice(fromIndex, 1);
+
+  reorderedItems.splice(toIndex, 0, movedItem);
+  items = reorderedItems.map((item, index) => ({
+    ...item,
+    rank: index + 1,
+  }));
+  renderItems();
+
+  try {
+    await persistRanks(items);
+  } catch (error) {
+    items = previousItems;
+    renderItems();
+    throw error;
+  }
+}
+
+async function persistRanks(rankedItems) {
+  if (!supabaseClient) {
+    saveLocalItems();
+    return;
+  }
+
+  const updates = await Promise.all(
+    rankedItems.map((item) =>
+      supabaseClient.from(TABLE_NAME).update({ rank: item.rank }).eq("id", item.id),
+    ),
+  );
+  const failedUpdate = updates.find((result) => result.error);
+
+  if (failedUpdate) {
+    throw failedUpdate.error;
+  }
 }
 
 function renderItems() {
@@ -148,24 +186,82 @@ function renderItems() {
     const row = rankingItemTemplate.content.firstElementChild.cloneNode(true);
     const image = row.querySelector(".entry-image");
     const title = row.querySelector("h3");
-    const url = row.querySelector("p");
     const upButton = row.querySelector(".move-up");
     const downButton = row.querySelector(".move-down");
 
-    row.querySelector(".rank-number").textContent = index + 1;
+    row.dataset.itemId = item.id;
+    row.draggable = !isBusy;
+    row.querySelector(".rank-number").textContent = String(index + 1).padStart(2, "0");
     image.src = item.image_url;
     image.alt = item.name;
     image.loading = "lazy";
     title.textContent = item.name;
-    url.textContent = formatImageUrl(item.image_url);
 
     upButton.disabled = index === 0 || isBusy;
     downButton.disabled = index === items.length - 1 || isBusy;
     upButton.addEventListener("click", () => moveItem(item.id, -1));
     downButton.addEventListener("click", () => moveItem(item.id, 1));
+    row.addEventListener("dragstart", (event) => handleDragStart(event, item.id));
+    row.addEventListener("dragover", (event) => handleDragOver(event, row));
+    row.addEventListener("dragleave", () => clearDropState(row));
+    row.addEventListener("drop", (event) => handleDrop(event, row, index));
+    row.addEventListener("dragend", handleDragEnd);
 
     rankingList.append(row);
   });
+}
+
+function handleDragStart(event, itemId) {
+  if (isBusy) {
+    event.preventDefault();
+    return;
+  }
+
+  draggedItemId = itemId;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", itemId);
+  event.currentTarget.classList.add("is-dragging");
+}
+
+function handleDragOver(event, row) {
+  if (!draggedItemId || row.dataset.itemId === draggedItemId) {
+    return;
+  }
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  clearAllDropState();
+
+  const rect = row.getBoundingClientRect();
+  const isAfter = event.clientY > rect.top + rect.height / 2;
+  row.classList.add(isAfter ? "drop-after" : "drop-before");
+}
+
+async function handleDrop(event, row, index) {
+  event.preventDefault();
+
+  const rect = row.getBoundingClientRect();
+  const isAfter = event.clientY > rect.top + rect.height / 2;
+  const dropIndex = isAfter ? index + 1 : index;
+
+  clearAllDropState();
+  await moveDraggedItem(dropIndex);
+  draggedItemId = null;
+}
+
+function clearDropState(row) {
+  row.classList.remove("drop-before", "drop-after");
+}
+
+function clearAllDropState() {
+  rankingList.querySelectorAll(".ranking-item").forEach((row) => {
+    row.classList.remove("is-dragging", "drop-before", "drop-after");
+  });
+}
+
+function handleDragEnd() {
+  draggedItemId = null;
+  clearAllDropState();
 }
 
 async function runWithBusyState(action) {
@@ -200,14 +296,6 @@ function setControlsDisabled(disabled) {
 
 function setStatus(message) {
   statusText.textContent = message;
-}
-
-function formatImageUrl(imageUrl) {
-  try {
-    return new URL(imageUrl).hostname.replace(/^www\./, "");
-  } catch {
-    return "Image";
-  }
 }
 
 function getModeStatus() {

@@ -22,41 +22,43 @@
         </div>
       </header>
 
-      <section class="entry-panel" aria-labelledby="add-entry-title">
-        <div class="section-header">
-          <h2 id="add-entry-title">Add Entry</h2>
-        </div>
-        <form id="entryForm" class="entry-form">
-          <label>
-            <span>Name</span>
-            <input id="nameInput" name="name" type="text" maxlength="120" autocomplete="off" required>
-          </label>
-          <label>
-            <span>Image URL</span>
-            <input id="imageInput" name="image_url" type="url" placeholder="https://example.com/cover.jpg" required>
-          </label>
-          <button class="icon-text-button primary" type="submit">
-            <span aria-hidden="true">+</span>
-            <span>Add</span>
-          </button>
-        </form>
-      </section>
+      <div class="workspace">
+        <section class="entry-panel" aria-labelledby="add-entry-title">
+          <div class="section-header">
+            <h2 id="add-entry-title">Add Entry</h2>
+          </div>
+          <form id="entryForm" class="entry-form">
+            <label>
+              <span>Name</span>
+              <input id="nameInput" name="name" type="text" maxlength="120" autocomplete="off" required>
+            </label>
+            <label>
+              <span>Image URL</span>
+              <input id="imageInput" name="image_url" type="url" placeholder="https://example.com/cover.jpg" required>
+            </label>
+            <button class="icon-text-button primary" type="submit">
+              <span aria-hidden="true">+</span>
+              <span>Add Entry</span>
+            </button>
+          </form>
+        </section>
 
-      <section class="ranking-section" aria-labelledby="ranking-title">
-        <div class="section-header">
-          <h2 id="ranking-title">Ranked List</h2>
-        </div>
-        <ol id="rankingList" class="ranking-list"></ol>
-      </section>
+        <section class="ranking-section" aria-labelledby="ranking-title">
+          <div class="section-header">
+            <h2 id="ranking-title">Ranked List</h2>
+          </div>
+          <ol id="rankingList" class="ranking-list"></ol>
+        </section>
+      </div>
     </main>
 
     <template id="rankingItemTemplate">
       <li class="ranking-item">
+        <div class="drag-handle" aria-hidden="true">::</div>
         <div class="rank-number"></div>
         <img class="entry-image" alt="">
         <div class="entry-details">
           <h3></h3>
-          <p></p>
         </div>
         <div class="rank-actions">
           <button class="icon-button move-up" type="button" aria-label="Move up" title="Move up">
