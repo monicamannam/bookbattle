@@ -157,7 +157,7 @@ function renderItems() {
     image.alt = item.name;
     image.loading = "lazy";
     title.textContent = item.name;
-    url.textContent = item.image_url;
+    url.textContent = formatImageUrl(item.image_url);
 
     upButton.disabled = index === 0 || isBusy;
     downButton.disabled = index === items.length - 1 || isBusy;
@@ -202,12 +202,20 @@ function setStatus(message) {
   statusText.textContent = message;
 }
 
+function formatImageUrl(imageUrl) {
+  try {
+    return new URL(imageUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return "Image";
+  }
+}
+
 function getModeStatus() {
   if (supabaseClient) {
-    return items.length ? `${items.length} ranked entries loaded.` : "Connected to Supabase. Add your first entry.";
+    return items.length ? `${items.length} ranked entries loaded.` : "Add your first entry.";
   }
 
-  return "Using browser storage. Add SUPABASE_URL and SUPABASE_ANON_KEY in Vercel to persist in the database.";
+  return items.length ? `${items.length} ranked entries loaded.` : "Add your first entry.";
 }
 
 async function loadRemoteConfig() {

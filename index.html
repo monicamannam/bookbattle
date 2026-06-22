@@ -8,19 +8,24 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="toolbar" aria-label="Ranking controls">
+      <header class="app-header">
         <div>
           <p class="eyebrow">Rankings</p>
           <h1>BookBattle</h1>
         </div>
-        <button class="icon-text-button secondary" id="refreshButton" type="button">
-          <span aria-hidden="true">&orarr;</span>
-          <span>Refresh</span>
-        </button>
-      </section>
+        <div class="header-actions">
+          <p id="statusText" class="status-pill" aria-live="polite">Loading rankings...</p>
+          <button class="icon-text-button secondary" id="refreshButton" type="button">
+            <span aria-hidden="true">&orarr;</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </header>
 
       <section class="entry-panel" aria-labelledby="add-entry-title">
-        <h2 id="add-entry-title">Add Entry</h2>
+        <div class="section-header">
+          <h2 id="add-entry-title">Add Entry</h2>
+        </div>
         <form id="entryForm" class="entry-form">
           <label>
             <span>Name</span>
@@ -37,12 +42,10 @@
         </form>
       </section>
 
-      <section class="status-row" aria-live="polite">
-        <p id="statusText">Loading rankings...</p>
-      </section>
-
       <section class="ranking-section" aria-labelledby="ranking-title">
-        <h2 id="ranking-title">Ranked List</h2>
+        <div class="section-header">
+          <h2 id="ranking-title">Ranked List</h2>
+        </div>
         <ol id="rankingList" class="ranking-list"></ol>
       </section>
     </main>
