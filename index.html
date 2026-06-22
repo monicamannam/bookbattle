@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BookBattle Rankings</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar" aria-label="Ranking controls">
+        <div>
+          <p class="eyebrow">Rankings</p>
+          <h1>BookBattle</h1>
+        </div>
+        <button class="icon-text-button secondary" id="refreshButton" type="button">
+          <span aria-hidden="true">&orarr;</span>
+          <span>Refresh</span>
+        </button>
+      </section>
+
+      <section class="entry-panel" aria-labelledby="add-entry-title">
+        <h2 id="add-entry-title">Add Entry</h2>
+        <form id="entryForm" class="entry-form">
+          <label>
+            <span>Name</span>
+            <input id="nameInput" name="name" type="text" maxlength="120" autocomplete="off" required>
+          </label>
+          <label>
+            <span>Image URL</span>
+            <input id="imageInput" name="image_url" type="url" placeholder="https://example.com/cover.jpg" required>
+          </label>
+          <button class="icon-text-button primary" type="submit">
+            <span aria-hidden="true">+</span>
+            <span>Add</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <p id="statusText">Loading rankings...</p>
+      </section>
+
+      <section class="ranking-section" aria-labelledby="ranking-title">
+        <h2 id="ranking-title">Ranked List</h2>
+        <ol id="rankingList" class="ranking-list"></ol>
+      </section>
+    </main>
+
+    <template id="rankingItemTemplate">
+      <li class="ranking-item">
+        <div class="rank-number"></div>
+        <img class="entry-image" alt="">
+        <div class="entry-details">
+          <h3></h3>
+          <p></p>
+        </div>
+        <div class="rank-actions">
+          <button class="icon-button move-up" type="button" aria-label="Move up" title="Move up">
+            <span aria-hidden="true">&uarr;</span>
+          </button>
+          <button class="icon-button move-down" type="button" aria-label="Move down" title="Move down">
+            <span aria-hidden="true">&darr;</span>
+          </button>
+        </div>
+      </li>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
