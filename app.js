@@ -1,20 +1,32 @@
 const TABLE_NAME = "bookbattle_items";
+const USERS_TABLE_NAME = "bookbattle_users";
 const LOCAL_STORAGE_KEY = "bookbattle-ranking-items";
+const SELECTED_USER_STORAGE_KEY = "bookbattle-selected-user";
 const RANK_STEP = 1000;
 const DEFAULT_STATUS = "reading";
 const VALID_STATUSES = new Set(["completed", "reading", "abandoned"]);
+const LOCAL_USER = { id: "local-user", name: "Local" };
 
 const entryForm = document.querySelector("#entryForm");
 const nameInput = document.querySelector("#nameInput");
 const imageInput = document.querySelector("#imageInput");
 const rankingList = document.querySelector("#rankingList");
 const rankingItemTemplate = document.querySelector("#rankingItemTemplate");
+const userSelect = document.querySelector("#userSelect");
 
 let supabaseClient = null;
 let hasLoadedRemoteConfig = false;
+let users = [];
+let selectedUserId = "";
 let items = [];
 let isBusy = false;
 let activeSort = null;
+
+userSelect.addEventListener("change", () => {
+  selectedUserId = userSelect.value;
+  localStorage.setItem(SELECTED_USER_STORAGE_KEY, selectedUserId);
+  loadItems();
+});
 
 entryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -22,7 +34,7 @@ entryForm.addEventListener("submit", async (event) => {
   const name = nameInput.value.trim();
   const imageUrl = imageInput.value.trim();
 
-  if (!name || !imageUrl) {
+  if (!name || !imageUrl || !selectedUserId) {
     return;
   }
 
@@ -33,6 +45,7 @@ entryForm.addEventListener("submit", async (event) => {
       image_url: imageUrl,
       rank: nextRank,
       status: DEFAULT_STATUS,
+      user_id: selectedUserId,
     };
 
     if (supabaseClient) {
@@ -56,7 +69,7 @@ entryForm.addEventListener("submit", async (event) => {
           created_at: new Date().toISOString(),
         },
       ]);
-      saveLocalItems();
+      saveLocalItems(items);
     }
 
     entryForm.reset();
@@ -67,11 +80,19 @@ entryForm.addEventListener("submit", async (event) => {
 async function loadItems() {
   await runWithBusyState(async () => {
     await loadRemoteConfig();
+    await loadUsers();
+
+    if (!selectedUserId) {
+      items = [];
+      renderItems();
+      return;
+    }
 
     if (supabaseClient) {
       const { data, error } = await supabaseClient
         .from(TABLE_NAME)
-        .select("id,name,image_url,rank,status,created_at")
+        .select("id,name,image_url,rank,status,user_id,created_at")
+        .eq("user_id", selectedUserId)
         .order("rank", { ascending: true })
         .order("created_at", { ascending: true });
 
@@ -81,11 +102,59 @@ async function loadItems() {
 
       items = normalizeRanks(data || []);
     } else {
-      items = normalizeRanks(loadLocalItems());
+      items = normalizeRanks(loadLocalItems().filter((item) => item.user_id === selectedUserId));
     }
 
     renderItems();
   });
+}
+
+async function loadUsers() {
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from(USERS_TABLE_NAME)
+      .select("id,name")
+      .order("name", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    users = data || [];
+  } else {
+    users = [LOCAL_USER];
+  }
+
+  selectedUserId = getSelectedUserId();
+  renderUsers();
+}
+
+function getSelectedUserId() {
+  const savedUserId = localStorage.getItem(SELECTED_USER_STORAGE_KEY);
+
+  if (users.some((user) => user.id === selectedUserId)) {
+    return selectedUserId;
+  }
+
+  if (users.some((user) => user.id === savedUserId)) {
+    return savedUserId;
+  }
+
+  return users[0]?.id || "";
+}
+
+function renderUsers() {
+  userSelect.replaceChildren();
+
+  users.forEach((user) => {
+    const option = document.createElement("option");
+    option.value = user.id;
+    option.textContent = user.name;
+    userSelect.append(option);
+  });
+
+  userSelect.value = selectedUserId;
+  userSelect.disabled = isBusy || !users.length;
 }
 
 async function moveItem(itemId, direction) {
@@ -138,7 +207,7 @@ async function persistReorderedItem(movedItemId) {
   movedItem.rank = nextRank;
 
   if (!supabaseClient) {
-    saveLocalItems();
+    saveLocalItems(items);
     return;
   }
 
@@ -154,7 +223,7 @@ async function persistReorderedItem(movedItemId) {
 
 async function persistAllRanks(rankedItems) {
   if (!supabaseClient) {
-    saveLocalItems();
+    saveLocalItems(rankedItems);
     return;
   }
 
@@ -255,7 +324,7 @@ async function updateItemStatus(itemId, nextStatus) {
 
   await runWithBusyState(async () => {
     if (!supabaseClient) {
-      saveLocalItems();
+      saveLocalItems(items);
       return;
     }
 
@@ -396,8 +465,9 @@ async function runWithBusyState(action) {
 
 function setControlsDisabled(disabled) {
   entryForm.querySelectorAll("button, input").forEach((control) => {
-    control.disabled = disabled;
+    control.disabled = disabled || !selectedUserId;
   });
+  userSelect.disabled = disabled || !users.length;
   rankingList.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
@@ -436,6 +506,7 @@ function normalizeRanks(rawItems) {
       ...item,
       rank: Number.isFinite(Number(item.rank)) ? Number(item.rank) : (index + 1) * RANK_STEP,
       status: normalizeStatus(item.status),
+      user_id: item.user_id || selectedUserId || LOCAL_USER.id,
     })),
   );
 
@@ -469,8 +540,9 @@ function loadLocalItems() {
   }
 }
 
-function saveLocalItems() {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+function saveLocalItems(updatedItems) {
+  const otherItems = loadLocalItems().filter((item) => item.user_id !== selectedUserId);
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...otherItems, ...updatedItems]));
 }
 
 loadItems();

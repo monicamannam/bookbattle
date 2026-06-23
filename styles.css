@@ -100,6 +100,19 @@ h2 {
   gap: 14px;
 }
 
+.user-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.user-picker select {
+  min-width: 180px;
+}
+
 .entry-form {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.3fr) auto;
@@ -401,6 +414,19 @@ button:disabled {
 
   .entry-form {
     grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .user-picker {
+    width: 100%;
+  }
+
+  .user-picker select {
+    width: 100%;
   }
 
   .primary {
